@@ -9,6 +9,11 @@ dependencies = [
     "numpy>=1.24.0",
     "opencv-python>=4.8.0",
     "matplotlib>=3.7.0",
+    "flask>=2.3.3",
+    "firebase-admin>=6.1.1",
+    "flask-limiter>=3.4.1",
+    "google-cloud-vision>=3.4.0",
+    "google-generativeai>=0.3.2",
 ]
 
 [build-system]
@@ -17,6 +22,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 88
