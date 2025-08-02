@@ -87,79 +87,46 @@ def solve():
         return jsonify({"error": "image file missing"}), 400
 
     img_bytes = request.files["image"].read()
-    try:
-        from backend.services.quality_service import assess  # local import to avoid cv2 overhead if unused
-
-        report = assess(img_bytes)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-
-    if not report.is_acceptable:
-        return (
-            jsonify(
-                {
-                    "error": "low_quality",
-                    "blur_score": report.blur_score,
-                    "brightness": report.brightness,
-                }
-            ),
-            422,
-        )
-
-    # OCR step
-    from backend.services.ocr_service import extract_text  # inline import to keep cold-start fast
-
-    text, confidence = extract_text(img_bytes)
-
-    # Validation step
-    from backend.services.validation_service import is_math_text
-
-    if not is_math_text(text):
-        return jsonify({"error": "invalid_input", "detail": "Not recognised as math"}), 400
 
     # -------------------------------------------------------------------
-    # Credit check
+    # Credit check (before expensive model call)
     # -------------------------------------------------------------------
     from backend.models.user_credits import decrement_credit, InsufficientCreditsError
-
     uid = request.user.get("uid")  # type: ignore[attr-defined]
     try:
         credits_remaining = decrement_credit(uid)
     except InsufficientCreditsError:
         return jsonify({"error": "no_credits", "detail": "Please top-up to continue."}), 402
 
-    # Call Gemini solver
-    from backend.services.gemini_service import solve_math
-
+    # -------------------------------------------------------------------
+    # Run LangGraph pipeline
+    # -------------------------------------------------------------------
+    from backend.graph.graph_factory import build_graph
     import time
+
+    graph = build_graph(provider="gemini")
     start_ts = time.perf_counter()
     try:
-        result = solve_math(text, image_bytes=img_bytes)
+        result = graph.run({"image_bytes": img_bytes})
     except Exception as exc:  # pragma: no cover
-        return jsonify({"error": "gemini_failure", "detail": str(exc)}), 502
+        return jsonify({"error": "graph_failure", "detail": str(exc)}), 502
     latency_ms = (time.perf_counter() - start_ts) * 1000
 
-    # Persist record
-    from backend.models.solve_record import save_record
+    if "error" in result:
+        # Remove raw bytes if present to make response JSON-safe
+        result.pop("image_bytes", None)
+        return jsonify(result), 400
 
-    save_record(
-        uid=request.user.get("uid"),  # type: ignore[attr-defined]
-        data={
-            "latency_ms": latency_ms,
-            "ocr_confidence": confidence,
-            # TODO: compute real token usage & cost once API exposes it
-            "cost_usd": 0.0,
-        },
-    )
+    # Persist record remains handled inside graph's persist agent, but we return solve_id if present
 
     payload = {
         "status": "ok",
-        "uid": request.user.get("uid"),  # type: ignore[attr-defined]
-        "ocr_text": text,
-        "ocr_confidence": confidence,
+        "uid": uid,
         "answer": result.get("answer"),
         "steps": result.get("steps"),
         "latency_ms": latency_ms,
+        "solve_id": result.get("solve_id"),
+        "ocr_confidence": result.get("ocr_confidence"),
     }
     resp = jsonify(payload)
 
@@ -204,7 +171,8 @@ def follow_up():
     from backend.services.gemini_service import solve_math
 
     try:
-        result = solve_math(question)
+        from backend.services.gemini_service import answer_follow_up
+        result = answer_follow_up({"follow_up": question})
     except Exception as exc:  # pragma: no cover
         return jsonify({"error": "gemini_failure", "detail": str(exc)}), 502
 

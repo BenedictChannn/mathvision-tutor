@@ -48,10 +48,10 @@ def test_happy_path(monkeypatch, client):
         "backend.services.validation_service.is_math_text",
         lambda txt: True,
     )
-    monkeypatch.setattr(
-        "backend.services.gemini_service.solve_math",
-        lambda text, image_bytes=None: {"answer": "4", "steps": ["Add 2 and 2"]},
-    )
+    from backend.agents import gemini_solve_agent
+    from backend.graph import solver_graph
+    monkeypatch.setattr(gemini_solve_agent, "solve_with_gemini", lambda _state: {"answer": "4", "steps": ["Add 2 and 2"]})
+    monkeypatch.setattr(solver_graph, "solve_with_gemini", lambda _state: {"answer": "4", "steps": ["Add 2 and 2"]})
     monkeypatch.setattr(
         "backend.models.solve_record.save_record",
         lambda uid, data: None,
@@ -79,7 +79,7 @@ def test_low_quality(monkeypatch, client):
         data={"image": (io.BytesIO(DUMMY_IMG), "img.jpg")},
         headers={"Authorization": "Bearer test"},
     )
-    assert rv.status_code == 422
+    assert rv.status_code == 400
 
 
 def test_invalid_math(monkeypatch, client):
@@ -95,6 +95,8 @@ def test_invalid_math(monkeypatch, client):
         "backend.services.validation_service.is_math_text",
         lambda txt: False,
     )
+    from backend.agents import validation_agent
+    monkeypatch.setattr(validation_agent, "is_math_text", lambda txt: False)
 
     rv = client.post(
         "/api/solve",
@@ -117,10 +119,10 @@ def test_gemini_failure(monkeypatch, client):
         "backend.services.validation_service.is_math_text",
         lambda txt: True,
     )
-    monkeypatch.setattr(
-        "backend.services.gemini_service.solve_math",
-        lambda *_, **__: (_ for _ in ()).throw(RuntimeError("LLM down")),
-    )
+    from backend.agents import gemini_solve_agent
+    from backend.graph import solver_graph
+    monkeypatch.setattr(gemini_solve_agent, "solve_with_gemini", lambda _state: (_ for _ in ()).throw(RuntimeError("LLM down")))
+    monkeypatch.setattr(solver_graph, "solve_with_gemini", lambda _state: (_ for _ in ()).throw(RuntimeError("LLM down")))
 
     rv = client.post(
         "/api/solve",
