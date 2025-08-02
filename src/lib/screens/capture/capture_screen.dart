@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../bloc/capture/capture_cubit.dart';
 import '../../bloc/capture/capture_state.dart';
+import '../../widgets/credits_badge.dart';
 
 /// CaptureScreen
 /// --------------
@@ -56,7 +56,10 @@ class CaptureScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Snap Math Problem')),
+        appBar: AppBar(
+          title: const Text('Snap Math Problem'),
+          actions: const [Padding(padding: EdgeInsets.only(right: 16), child: CreditsBadge())],
+        ),
         body: BlocBuilder<CaptureCubit, CaptureState>(
           builder: (context, state) {
             final canCapture = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
