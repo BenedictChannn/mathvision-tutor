@@ -3,7 +3,7 @@ name = "mathvision-tutor"
 version = "0.1.0"
 description = "A Python-based project for mathematics and computer vision tutoring"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"},
+    {name = "Benedict Chan", email = "benedictchan247@gmail.com"},
 ]
 dependencies = [
     "numpy>=1.24.0",
