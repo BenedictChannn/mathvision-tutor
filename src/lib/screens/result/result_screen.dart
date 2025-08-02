@@ -11,6 +11,8 @@ class ResultScreen extends StatelessWidget {
     super.key,
     required this.answer,
     required this.steps,
+    this.followUpsLeft = 3,
+    this.onFollowUpRequested,
   });
 
   /// The final answer to the user’s maths problem.
@@ -18,6 +20,12 @@ class ResultScreen extends StatelessWidget {
 
   /// A sequential list of explanation steps.
   final List<String> steps;
+
+  /// Remaining follow-up questions the user can ask before reaching the cap.
+  final int followUpsLeft;
+
+  /// Invoked when the user submits a follow-up question.
+  final ValueChanged<String>? onFollowUpRequested;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +63,58 @@ class ResultScreen extends StatelessWidget {
           );
         },
       ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ElevatedButton(
+          onPressed: followUpsLeft > 0 ? () => _openFollowUpSheet(context) : null,
+          child: Text('Ask a follow-up (\$followUpsLeft left)'),
+        ),
+      ),
     );
+  }
+
+  Future<void> _openFollowUpSheet(BuildContext context) async {
+    final controller = TextEditingController();
+    final question = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            left: 16,
+            right: 16,
+            top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: controller,
+                textInputAction: TextInputAction.send,
+                decoration: const InputDecoration(
+                  labelText: 'Enter your follow-up question',
+                ),
+                onSubmitted: (_) =>
+                    Navigator.of(context).pop(controller.text.trim()),
+                maxLines: null,
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () =>
+                    Navigator.of(context).pop(controller.text.trim()),
+                child: const Text('Send'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (question != null && question.isNotEmpty) {
+      onFollowUpRequested?.call(question);
+    }
   }
 
   Widget _buildStepCard(BuildContext context, int index) => Card(
