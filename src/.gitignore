@@ -53,3 +53,5 @@ frontend/node_modules/
 # Backend
 backend/serviceAccount.json
 backend/.env
+
+android/app/google-services.json
