@@ -158,6 +158,50 @@ def solve():
     return resp, 200
 
 
+
+
+@app.route("/api/follow_up", methods=["POST"])
+@require_auth
+def follow_up():
+    """Handle a follow-up question for an existing solve record.
+
+    Expects JSON body with:
+      - solve_id: Firestore ID of the parent solve record
+      - question: User follow-up question text
+    """
+    payload = request.get_json(silent=True) or {}
+    solve_id = payload.get("solve_id")
+    question = payload.get("question", "").strip()
+
+    if not solve_id or not question:
+        return jsonify({"error": "missing_fields"}), 400
+
+    # Call Gemini (reuse solve_math for simplicity; in production you'd craft a
+    # prompt that includes original context).
+    from backend.services.gemini_service import solve_math
+
+    try:
+        result = solve_math(question)
+    except Exception as exc:  # pragma: no cover
+        return jsonify({"error": "gemini_failure", "detail": str(exc)}), 502
+
+    # Persist follow-up under sub-collection.
+    from backend.models.solve_record import add_follow_up
+
+    add_follow_up(
+        solve_id,
+        {
+            "uid": request.user.get("uid"),  # type: ignore[attr-defined]
+            "question": question,
+            "answer": result.get("answer"),
+        },
+    )
+
+    return jsonify({
+        "status": "ok",
+        "answer": result.get("answer"),
+    }), 200
+
 # ---------------------------------------------------------------------------
 # Local dev entrypoint
 # ---------------------------------------------------------------------------
