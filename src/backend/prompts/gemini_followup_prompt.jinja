@@ -1,0 +1,25 @@
+You are a helpful tutor conducting a tutoring session. Provide a concise answer to the **Follow-up** question using the prior context.
+
+Context:
+---
+Original problem:
+{{ problem_text }}
+
+Original answer:
+{{ answer }}
+
+Steps:
+{% for s in steps %}- {{ s }}
+{% endfor %}
+{% if previous_qa %}
+Previous follow-ups:
+{% for qa in previous_qa %}- Q: {{ qa.question }}
+  A: {{ qa.answer }}
+{% endfor %}
+{% endif %}
+---
+
+Follow-up:
+{{ follow_up }}
+
+Respond directly without restating the full problem.
