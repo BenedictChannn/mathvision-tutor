@@ -44,4 +44,12 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Cloud Functions
 cloud_functions/node_modules/
+
+# Frontend
+frontend/node_modules/
+
+# Backend
+backend/serviceAccount.json
+backend/.env
