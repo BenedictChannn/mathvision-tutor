@@ -19,9 +19,18 @@ DUMMY_IMG = (
 def client() -> FlaskClient:
     flask_app.config.update(TESTING=True)
     from firebase_admin import auth as _auth, firestore as _fs
-    _auth.verify_id_token = lambda _: {"uid": "test", "credits_left": 10}  # type: ignore
+    _auth.verify_id_token = lambda _: {"uid": "test"}  # type: ignore
     # Stub Firestore client to avoid credential lookup
-    _fs.client = lambda *_, **__: SimpleNamespace(collection=lambda *_, **__: SimpleNamespace(add=lambda *_: None))  # type: ignore
+    _fs.client = lambda *_, **__: SimpleNamespace(
+        collection=lambda *_args, **_kwargs: SimpleNamespace(
+            add=lambda *_: None,
+            document=lambda *_: SimpleNamespace(
+                get=lambda transaction=None: SimpleNamespace(exists=True, to_dict=lambda: {"credits_left": 10}),
+                update=lambda *_: None,
+                set=lambda *_1, **_2: None,
+            ),
+        )
+    )  # type: ignore
     return flask_app.test_client()
 
 

@@ -1,10 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/solve_api.dart';
 import 'capture_state.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// CaptureCubit
 /// -------------
@@ -21,6 +22,17 @@ class CaptureCubit extends Cubit<CaptureState> {
 
   /// Called after [XFile] is obtained from image picker.
   Future<void> onImageSelected(XFile file) async {
+    // Guest quota check (3 free solves)
+    if (FirebaseAuth.instance.currentUser?.isAnonymous == true) {
+      final prefs = await SharedPreferences.getInstance();
+      final used = prefs.getInt('guest_solves') ?? 0;
+      if (used >= 3) {
+        emit(const CaptureState.error('Please sign in to continue solving problems.'));
+        return;
+      }
+      await prefs.setInt('guest_solves', used + 1);
+    }
+
     // Validate size (≤ 2 MB). If larger, emit error.
     final fileSize = await File(file.path).length();
     const maxSizeBytes = 2 * 1024 * 1024;

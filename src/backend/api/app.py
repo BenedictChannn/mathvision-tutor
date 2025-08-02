@@ -107,6 +107,17 @@ def solve():
     if not is_math_text(text):
         return jsonify({"error": "invalid_input", "detail": "Not recognised as math"}), 400
 
+    # -------------------------------------------------------------------
+    # Credit check
+    # -------------------------------------------------------------------
+    from backend.models.user_credits import decrement_credit, InsufficientCreditsError
+
+    uid = request.user.get("uid")  # type: ignore[attr-defined]
+    try:
+        credits_remaining = decrement_credit(uid)
+    except InsufficientCreditsError:
+        return jsonify({"error": "no_credits", "detail": "Please top-up to continue."}), 402
+
     # Call Gemini solver
     from backend.services.gemini_service import solve_math
 
@@ -142,8 +153,8 @@ def solve():
     }
     resp = jsonify(payload)
 
-    # Placeholder credits logic – replace with real quota in task 3.x
-    resp.headers["X-Credits-Remaining"] = request.user.get("credits_left", "N/A")  # type: ignore[attr-defined]
+    # Credits header
+    resp.headers["X-Credits-Remaining"] = str(credits_remaining)
     return resp, 200
 
 
