@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import json
+import logging
 from functools import wraps
 from typing import Callable, TypeVar, ParamSpec
 
@@ -18,6 +20,14 @@ from firebase_admin import auth, credentials
 # ---------------------------------------------------------------------------
 
 app = Flask(__name__)
+
+# Structured logger. Cloud Run will emit these JSON lines to Cloud Logging.
+logger = logging.getLogger("solver")
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
 
 # Rate-limit: 30 requests/minute per IP (MVP default)
 app.config["RATELIMIT_HEADERS_ENABLED"] = True
@@ -155,6 +165,19 @@ def solve():
 
     # Credits header
     resp.headers["X-Credits-Remaining"] = str(credits_remaining)
+
+
+    # Structured log for BigQuery sink
+    logger.info(
+        json.dumps({
+            "uid": uid,
+            "route": "solve",
+            "latency_ms": latency_ms,
+            "cost_usd": 0.0,
+            "tokens": None,
+        }),
+        extra={"labels": {"app": "mathvision-solver", "route": "solve"}},
+    )
     return resp, 200
 
 
@@ -197,6 +220,15 @@ def follow_up():
         },
     )
 
+    # Structured log
+    logger.info(
+        json.dumps({
+            "uid": request.user.get("uid"),
+            "route": "follow_up",
+            "solve_id": solve_id,
+        }),
+        extra={"labels": {"app": "mathvision-solver", "route": "follow_up"}},
+    )
     return jsonify({
         "status": "ok",
         "answer": result.get("answer"),
